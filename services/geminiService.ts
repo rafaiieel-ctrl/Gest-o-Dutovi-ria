@@ -4,16 +4,20 @@ import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { OperationDetails, Tank, Vessel } from '../types';
 import { numberToBr } from "../utils/helpers";
 
-const API_KEY = process.env.API_KEY;
+const API_KEY = process.env.API_KEY || process.env.GEMINI_API_KEY;
 
-if (!API_KEY) {
-  console.warn("API key for Gemini not found. AI features will be disabled.");
+let aiInstance: GoogleGenAI | null = null;
+
+function getAI() {
+    if (!aiInstance && API_KEY) {
+        aiInstance = new GoogleGenAI({ apiKey: API_KEY });
+    }
+    return aiInstance;
 }
 
-const ai = new GoogleGenAI({ apiKey: API_KEY! });
-
 export async function analyzeOperationData(details: OperationDetails, tanks: Tank[], userPrompt: string, vessels: Vessel[]): Promise<string> {
-    if (!API_KEY) {
+    const ai = getAI();
+    if (!ai) {
         return "A chave da API do Gemini não foi configurada. A análise por IA está desativada.";
     }
 
@@ -64,7 +68,7 @@ export async function analyzeOperationData(details: OperationDetails, tanks: Tan
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-1.5-flash',
             contents: fullPrompt,
         });
         return response.text;
@@ -76,7 +80,8 @@ export async function analyzeOperationData(details: OperationDetails, tanks: Tan
 
 
 export async function analyzeGaugingCertificate(images: {mimeType: string, data: string}[]): Promise<Partial<Vessel>> {
-    if (!API_KEY) {
+    const ai = getAI();
+    if (!ai) {
         throw new Error("A chave da API do Gemini não foi configurada. A análise por IA está desativada.");
     }
     
@@ -163,7 +168,7 @@ export async function analyzeGaugingCertificate(images: {mimeType: string, data:
     let response: GenerateContentResponse | undefined;
     try {
         response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-1.5-flash',
             contents: { parts: [textPart, ...imageParts] },
             config: {
                 responseMimeType: "application/json",
